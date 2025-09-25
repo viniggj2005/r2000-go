@@ -1,0 +1,17 @@
+{
+	"name": "R2000-go",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/app",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",
+				"tomoki1207.pdf",
+				"mhutchie.git-graph",
+				"gruntfuggly.todo-tree",
+				"supperchong.pretty-json",
+			]
+		}
+	}
+}
