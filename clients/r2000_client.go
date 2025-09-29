@@ -1,43 +1,36 @@
 package clients
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/viniggj2005/r2000-go/connection"
+	"github.com/viniggj2005/r2000-go/dtos"
+	"github.com/viniggj2005/r2000-go/enums"
 	"github.com/viniggj2005/r2000-go/utils"
 	"go.bug.st/serial"
 )
 
-type OnReadingCallbacks struct {
-	OnFirmware           func(client *R2000Client, version float64)
-	OnTemperature        func(client *R2000Client, temperature int)
-	OnReadingError       func(client *R2000Client, msg string)
-	OnGetDrmStatus       func(client *R2000Client, status string)
-	OnReading            func(client *R2000Client, reading utils.ReadingStruct)
-	OnSetDrm             func(client *R2000Client, ok bool, errMsg *[]byte)
-	OnGetWorkAntenna     func(client *R2000Client, antennas string)
-	OnGetOutputPower     func(client *R2000Client, powers map[string]int)
-	OnSetWorkAntenna     func(client *R2000Client, ok bool, errMsg *[]byte)
-	OnSetOutputPower     func(client *R2000Client, ok bool, errMsg *[]byte)
-	OnGetFrequencyRegion func(client *R2000Client, region string, f1, f2 float64, errMsg error)
-	OnSetBuzzerBehavior  func(client *R2000Client, ok bool, errMsg *[]byte)
-	OnSetFrequencyRegion func(client *R2000Client, ok bool, errMsg *[]byte)
-}
-
-// Estrutura principal do cliente
+// Estrutura principal do cliente.
 type R2000Client struct {
-	Name       string      // Nome do cliente (identificação lógica)
-	Port       serial.Port // Porta serial aberta
-	Online     bool        // Status de conexão
-	FrameQueue chan []byte // Canal para enfileirar frames recebidos
-	//TODO criar uma struc para o OnFrame com a tratativa do tipo de cada callback
-	Callbacks OnReadingCallbacks // Callback para processar cada frame recebido
-	stopChan  chan struct{}      // Canal usado para sinalizar parada
-	wg        sync.WaitGroup     // WaitGroup para aguardar goroutines terminarem
+	Online       bool           // Status de conexão
+	Name         string         // Nome do cliente (identificação lógica)
+	Port         serial.Port    // Porta serial aberta
+	FrameQueue   chan []byte    // Canal para enfileirar frames recebidos
+	stopChan     chan struct{}  // Canal usado para sinalizar parada
+	wg           sync.WaitGroup // WaitGroup para aguardar goroutines terminarem
+	realtimeStop chan struct{}
+	realtimeRun  bool
+	Callbacks    dtos.OnReadingCallbacks // Callback para processar cada frame recebido
 }
 
-// Construtor do cliente: abre a porta, inicia listener e processador
-func NewR2000Client(name, portName string, onFrame OnReadingCallbacks) (*R2000Client, error) {
+func (c *R2000Client) GetName() string {
+	return c.Name
+}
+
+// Construtor do cliente: abre a porta, inicia listener e processador.
+func NewR2000Client(name, portName string, onFrame dtos.OnReadingCallbacks) (*R2000Client, error) {
 	// Abre a porta serial com a função já existente no seu pacote connection
 	portHandle, err := connection.OpenSerialConnection(portName)
 	if err != nil {
@@ -70,14 +63,14 @@ func NewR2000Client(name, portName string, onFrame OnReadingCallbacks) (*R2000Cl
 	return client, nil
 }
 
-// Fecha o cliente: sinaliza stopChan, aguarda goroutines e fecha a porta
+// Fecha o cliente: sinaliza stopChan, aguarda goroutines e fecha a porta.
 func (c *R2000Client) Close() error {
 	close(c.stopChan)     // avisa para as goroutines pararem
 	c.wg.Wait()           // espera todas terminarem
 	return c.Port.Close() // fecha a porta serial
 }
 
-// Goroutine que consome frames da fila e chama o callback OnFrame
+// Goroutine que consome frames da fila e chama o callback OnFrame.
 func (c *R2000Client) processFrames() {
 	defer c.wg.Done()
 	for {
@@ -89,4 +82,178 @@ func (c *R2000Client) processFrames() {
 			ProcessR2000Frames(c, frame)
 		}
 	}
+}
+
+// Função responsável por eviar os frames através do canal serial.
+func (c *R2000Client) sendFrame(frame []byte) error {
+	total := 0
+	for total < len(frame) {
+		n, err := c.Port.Write(frame[total:])
+		if err != nil {
+			return err
+		}
+		total += n
+	}
+	return nil
+}
+
+// Reseta o módulo.
+func (c *R2000Client) ModuleReset() {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.RESET})
+	c.sendFrame(frame)
+}
+
+// Retorna a temperatura do módulo.
+func (c *R2000Client) GetModuleTemperature() {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.GET_READER_TEMPERATURE})
+	c.sendFrame(frame)
+}
+
+// Retorna o status do Drm.
+func (c *R2000Client) GetDrmStatus() {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.GET_DRM_STATUS})
+	c.sendFrame(frame)
+}
+
+// Retorna a versão do firmware.
+func (c *R2000Client) GetFirmwareVersion() {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.GET_FIRMWARE_VERSION})
+	c.sendFrame(frame)
+}
+
+// Retorna a Região e a frequencia de operação.
+func (c *R2000Client) GetFrequencyRegion() {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.GET_FREQUENCY_REGION})
+	c.sendFrame(frame)
+}
+
+// Retorna a potencuia que o modulo ta entregando.
+func (c *R2000Client) GetOutPutPower() {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.GET_RF_POWER})
+	c.sendFrame(frame)
+}
+
+// Retorna a antena em funcionamento no momento.
+func (c *R2000Client) GetWorkAntenna() {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.GET_WORK_ANTENNA})
+	c.sendFrame(frame)
+}
+
+// Altera o comportamento do buzzer.
+func (c *R2000Client) SetBeeperMode(mode enums.R2000BeeperEnum) {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_BEEPER_MODE, Params: []byte{byte(mode)}})
+	c.sendFrame(frame)
+}
+
+// Altera a Região de funcionamento do módulo.
+func (c *R2000Client) SetFrequencyRegion(obj dtos.FrequencyRegionsStruct) {
+	params := []byte{obj.Region, obj.StartFrequency, obj.EndFrequency}
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_FREQUENCY_REGION, Params: params})
+	c.sendFrame(frame)
+}
+
+// Altera o estado do Drm.
+func (c *R2000Client) SetDrm(param enums.R2000StateEnum) {
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_DRM, Params: []byte{byte(param)}})
+	c.sendFrame(frame)
+}
+
+// Altera a potência de saída do módulo.
+func (c *R2000Client) SetOutputPower(dbmPower int) {
+	if dbmPower < 20 || dbmPower > 33 {
+		c.Callbacks.OnSetWorkAntenna(c, false, fmt.Sprintf("valor inválido: %d (o valor deve estar 20–33 dBm)", dbmPower))
+		return
+	}
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_TEMPORARY_OUTPUT_POWER, Params: []byte{byte(dbmPower)}})
+	c.sendFrame(frame)
+}
+
+// Altera a antena de saída do módulo.
+func (c *R2000Client) SetWorkAntenna(antennaId int) {
+	if antennaId < 0 || antennaId > 3 {
+		c.Callbacks.OnSetWorkAntenna(c, false, fmt.Sprintf("valor inválido: %d o range de antenas é de 0 a 3", antennaId))
+		return
+	}
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_TEMPORARY_OUTPUT_POWER, Params: []byte{byte(antennaId)}})
+	c.sendFrame(frame)
+}
+
+// ##############################################################################
+
+// Inicia inventário em loop até chamar StopRealtime()
+func (c *R2000Client) StartRealtime(dto *dtos.RealtimeDto) error {
+	if c.realtimeRun {
+		return fmt.Errorf("realtime já em execução")
+	}
+	if dto == nil {
+		return fmt.Errorf("dto não pode ser nil")
+	}
+
+	// valida antenas
+	var antList []byte
+	for _, ant := range dto.Antennas {
+		if ant < 0x00 || ant > 0x03 {
+			return fmt.Errorf("AntennaID inválida: %d", ant)
+		}
+		antList = append(antList, byte(ant))
+	}
+	if len(antList) == 0 {
+		return fmt.Errorf("forneça pelo menos uma antena")
+	}
+
+	c.realtimeStop = make(chan struct{})
+	c.realtimeRun = true
+
+	go func() {
+		defer func() { c.realtimeRun = false }()
+
+		for {
+			select {
+			case <-c.realtimeStop:
+				return
+			default:
+			}
+
+			for _, ant := range antList {
+				// seta antena
+				frame := utils.BuildCommandFrame(dtos.BuildFrame{
+					Command: enums.SET_WORK_ANTENNA,
+					Params:  []byte{ant},
+				})
+				c.sendFrame(frame)
+
+				// dwell
+				tEnd := time.Now().Add(time.Duration(dto.DwellS * float64(time.Second)))
+				for time.Now().Before(tEnd) {
+					select {
+					case <-c.realtimeStop:
+						return
+					default:
+					}
+					inv := utils.BuildCommandFrame(dtos.BuildFrame{
+						Command: enums.REAL_TIME_INVENTORY,
+						Params:  []byte{byte(dto.Repeat & 0xFF)},
+					})
+					c.sendFrame(inv)
+					time.Sleep(0)
+				}
+
+				// delay entre antenas
+				if dto.SwitchDelayS > 0 {
+					time.Sleep(time.Duration(dto.SwitchDelayS * float64(time.Second)))
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+// Para o inventário realtime
+func (c *R2000Client) StopRealtime() {
+	if !c.realtimeRun {
+		return
+	}
+	close(c.realtimeStop)
+	c.ModuleReset() // opcional, reinicia o módulo
 }

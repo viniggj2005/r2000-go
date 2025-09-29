@@ -9,3 +9,17 @@ const (
 	ANTENNA4 R2000FastSwitchInventoryEnum = 0x03
 	DISABLED R2000FastSwitchInventoryEnum = 0xFF
 )
+
+var FastSwitchInventory = struct {
+	ANTENNA1 []byte
+	ANTENNA2 []byte
+	ANTENNA3 []byte
+	ANTENNA4 []byte
+	DISABLED []byte
+}{
+	ANTENNA1: []byte{byte(ANTENNA1)},
+	ANTENNA2: []byte{byte(ANTENNA2)},
+	ANTENNA3: []byte{byte(ANTENNA3)},
+	ANTENNA4: []byte{byte(ANTENNA4)},
+	DISABLED: []byte{byte(DISABLED)},
+}

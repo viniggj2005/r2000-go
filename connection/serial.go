@@ -36,15 +36,36 @@ func OpenSerialConnection(port string) (serial.Port, error) {
 func ListenSerial(portHandle serial.Port, callback func([]byte)) {
 	go func() {
 		buf := make([]byte, 256)
+		var buffer []byte
+
 		for {
 			n, err := portHandle.Read(buf)
 			if err != nil {
 				return
 			}
 			if n > 0 {
-				data := make([]byte, n)
-				copy(data, buf[:n])
-				callback(data)
+				buffer = append(buffer, buf[:n]...)
+
+				for {
+					if len(buffer) < 2 {
+						break
+					}
+					if buffer[0] != 0xA0 {
+						buffer = buffer[1:]
+						continue
+					}
+
+					length := int(buffer[1])
+					frameSize := length + 2
+					if len(buffer) < frameSize {
+						break
+					}
+
+					frame := buffer[:frameSize]
+					buffer = buffer[frameSize:]
+
+					callback(frame)
+				}
 			}
 		}
 	}()

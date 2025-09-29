@@ -7,12 +7,16 @@ import (
 	"github.com/viniggj2005/r2000-go/utils"
 )
 
+// Função responásvel por tratar os frames retornados do módulo pelo canal serial.
 func ProcessR2000Frames(client *R2000Client, frame []byte) {
+	fmt.Println("frame:", frame)
 	validFrame := utils.ValidateFrame(frame)
-	if validFrame == false {
+	if !validFrame {
 		return
 	}
+
 	frameCommand := frame[3]
+	fmt.Println("FRAMECOMMAND:", frameCommand)
 	switch frameCommand {
 	case byte(enums.GET_READER_TEMPERATURE):
 		callback := client.Callbacks.OnTemperature
@@ -30,7 +34,7 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 		callback := client.Callbacks.OnSetBuzzerBehavior
 		if callback != nil {
 			response, err := utils.OnSetMessage(frame)
-			callback(client, response, &err)
+			callback(client, response, err)
 		}
 	case byte(enums.GET_RF_POWER):
 		callback := client.Callbacks.OnGetOutputPower
@@ -42,13 +46,13 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 		callback := client.Callbacks.OnSetOutputPower
 		if callback != nil {
 			response, err := utils.OnSetMessage(frame)
-			callback(client, response, &err)
+			callback(client, response, err)
 		}
 	case byte(enums.SET_RF_POWER):
 		callback := client.Callbacks.OnSetOutputPower
 		if callback != nil {
 			response, err := utils.OnSetMessage(frame)
-			callback(client, response, &err)
+			callback(client, response, err)
 		}
 	case byte(enums.GET_WORK_ANTENNA):
 		callback := client.Callbacks.OnGetWorkAntenna
@@ -66,13 +70,13 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 		callback := client.Callbacks.OnSetWorkAntenna
 		if callback != nil {
 			response, err := utils.OnSetMessage(frame)
-			callback(client, response, &err)
+			callback(client, response, err)
 		}
 	case byte(enums.SET_FREQUENCY_REGION):
 		callback := client.Callbacks.OnSetFrequencyRegion
 		if callback != nil {
 			response, err := utils.OnSetMessage(frame)
-			callback(client, response, &err)
+			callback(client, response, err)
 		}
 	case byte(enums.GET_DRM_STATUS):
 		callback := client.Callbacks.OnGetDrmStatus
@@ -84,16 +88,21 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 		callback := client.Callbacks.OnSetDrm
 		if callback != nil {
 			response, err := utils.OnSetMessage(frame)
-			callback(client, response, &err)
+			callback(client, response, err)
 		}
-	case byte(enums.FAST_SWITCH_ANT_INVENTORY) | byte(enums.REAL_TIME_INVENTORY):
+
+	case byte(enums.FAST_SWITCH_ANT_INVENTORY), byte(enums.REAL_TIME_INVENTORY):
+		fmt.Println("DEU certo")
 		length := frame[1]
 		if length == 0x05 && frame[5] == 0x22 {
+
 			callback := client.Callbacks.OnReadingError
 			antenna := frame[4] + 1
 			callback(client, fmt.Sprintf("Antena %d ausente ou mal conectada.", antenna))
 		}
+		fmt.Println("LENGTH:", length)
 		if length >= 0x0F {
+			fmt.Println("entrou no segundo if")
 			callback := client.Callbacks.OnReading
 			if callback != nil {
 				response := utils.OnReading(frame)
@@ -101,7 +110,11 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 			}
 		}
 	case byte(enums.RESET):
-		fmt.Println("Error ao resetar o módulo codigo:", frame[len(frame)-2])
+		if len(frame) >= 2 {
+			fmt.Printf("Reset executado, código de resposta: 0x%X\n", frame[len(frame)-2])
+		} else {
+			fmt.Println("Frame inválido recebido no RESET")
+		}
 	default:
 	}
 }

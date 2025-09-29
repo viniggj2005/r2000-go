@@ -1,13 +1,9 @@
 package utils
 
 import (
+	"github.com/viniggj2005/r2000-go/dtos"
 	"github.com/viniggj2005/r2000-go/enums"
 )
-
-type BuildFrame struct {
-	Command enums.R2000CommandsEnum
-	Params  []byte
-}
 
 func ExtractParams(frame []byte) []byte {
 	return frame[4 : len(frame)-1]
@@ -21,7 +17,7 @@ func EncodeParamsToBytes(params int) []byte {
 	return []byte{byte(params)}
 }
 
-func BuildCommandFrame(obj BuildFrame) []byte {
+func BuildCommandFrame(obj dtos.BuildFrame) []byte {
 	middle := []byte{}
 	middle = append(middle, EncodeParamsToBytes(len(obj.Params)+3)...)
 	middle = append(middle, 0x01)

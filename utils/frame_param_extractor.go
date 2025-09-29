@@ -6,14 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/viniggj2005/r2000-go/dtos"
 	"github.com/viniggj2005/r2000-go/enums"
 )
-
-type ReadingStruct struct {
-	Antenna int
-	Pc      string
-	Epc     string
-}
 
 func OnGetTemperature(frame []byte) int {
 	params := ExtractParams(frame)
@@ -28,7 +23,7 @@ func OnGetTemperature(frame []byte) int {
 
 func OnGetFirmwareVersion(frame []byte) float64 {
 	params := ExtractParams(frame)
-	str := fmt.Sprintf("?.?", params[0], params[1])
+	str := fmt.Sprintf("%v.%v", params[0], params[1])
 	version, _ := strconv.ParseFloat(str, 64)
 	return version
 }
@@ -91,25 +86,25 @@ func OnGetFrequencyRegion(frame []byte) (string, float64, float64, error) {
 	return "USER", 0, 0, nil
 }
 
-func OnSetMessage(frame []byte) (bool, []byte) {
+func OnSetMessage(frame []byte) (bool, string) {
 	params := ExtractParams(frame)
-	var errorCode []byte
+	var errorCode string
 	var response bool
 	if len(params) > 0 && params[0] == byte(enums.SUCCESS) {
 		response = true
 	} else {
-		errorCode = params
+		errorCode = string(params)
 		response = false
 	}
 	return response, errorCode
 }
 
-func OnReading(frame []byte) ReadingStruct {
+func OnReading(frame []byte) dtos.ReadingStruct {
 	reading := ExtractReading(frame)
 	antenna := int(reading[0] & 0b11)
 	pc := strings.ToUpper(hex.EncodeToString(reading[1:3]))
 	epc := strings.ToUpper(hex.EncodeToString(reading[3:]))
-	return ReadingStruct{
+	return dtos.ReadingStruct{
 		Antenna: antenna,
 		Pc:      pc,
 		Epc:     epc,

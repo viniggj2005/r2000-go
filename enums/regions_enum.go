@@ -9,6 +9,18 @@ const (
 	USER R2000RegionsEnum = 4
 )
 
+var Regions = struct {
+	FCC  byte
+	CHN  byte
+	ETSI byte
+	USER byte
+}{
+	FCC:  byte(FCC),
+	CHN:  byte(CHN),
+	ETSI: byte(ETSI),
+	USER: byte(USER),
+}
+
 func (r R2000RegionsEnum) String() string {
 	switch r {
 	case ETSI:

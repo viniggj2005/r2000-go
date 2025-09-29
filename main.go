@@ -7,6 +7,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/viniggj2005/r2000-go/clients"
+	"github.com/viniggj2005/r2000-go/dtos"
 	// "github.com/viniggj2005/r2000-go/mqtt"
 )
 
@@ -22,7 +23,7 @@ func main() {
 	// mqtt.Publish(client, "topic/test", 0, true, []byte(`{"teste":"vini"}`))]
 	//##################################################################
 	//PARTE CONEXÃO SERIAL
-	// client := serial.GetPorts()
+	// client := connection.GetPorts()
 	// fmt.Println("portas:", client)
 	// port, err := serial.SerialConnection(client[0])
 	// if err != nil {
@@ -46,17 +47,45 @@ func main() {
 	// utils.BuildCommandFrame(utils.BuildFrame{Command: enums.GET_READER_TEMPERATURE, Params: []byte{byte(enums.ANTENNA1)}})
 	//##################################################################
 
-	callbacks := clients.OnReadingCallbacks{
-		OnFirmware: func(client *clients.R2000Client, version float64) {
+	callbacks := dtos.OnReadingCallbacks{
+		OnFirmware: func(client dtos.R2000ClientIface, version float64) {
 			fmt.Println("Firmware version:", version)
 		},
-		OnTemperature: func(client *clients.R2000Client, temperature int) {
+		OnTemperature: func(client dtos.R2000ClientIface, temperature int) {
 			fmt.Println("Temperature:", temperature)
 		},
-		OnGetDrmStatus: func(client *clients.R2000Client, status string) {
+		OnGetDrmStatus: func(client dtos.R2000ClientIface, status string) {
 			fmt.Println("DRM Status:", status)
 		},
-		// você adiciona os outros conforme necessário
+		OnGetFrequencyRegion: func(client dtos.R2000ClientIface, region string, frequency1, frequency2 float64, err error) {
+			fmt.Println("region:", region, "f1:", frequency1, "f2:", frequency2)
+		},
+		OnGetOutputPower: func(client dtos.R2000ClientIface, power map[string]int) {
+			for chave, valor := range power {
+				fmt.Println("antenas:", chave, "potência :", valor, "Dbm")
+			}
+		},
+		OnGetWorkAntenna: func(client dtos.R2000ClientIface, antenna string) {
+			fmt.Println("region:", antenna)
+		},
+		OnSetBuzzerBehavior: func(client dtos.R2000ClientIface, ok bool, errMsg string) {
+			fmt.Println("Comportamento setado:", ok)
+		},
+		OnSetFrequencyRegion: func(client dtos.R2000ClientIface, ok bool, errMsg string) {
+			fmt.Println("Comportamento setado:", ok)
+		},
+		OnSetDrm: func(client dtos.R2000ClientIface, ok bool, errMsg string) {
+			fmt.Println("Comportamento setado:", ok)
+		},
+		OnSetOutputPower: func(client dtos.R2000ClientIface, ok bool, errMsg string) {
+			fmt.Println("Comportamento setado:", ok)
+		},
+		// OnSetWorkAntenna: func(client dtos.R2000ClientIface, ok bool, errMsg string) {
+		// 	fmt.Println("Comportamento setado:", ok, errMsg)
+		// },
+		OnReading: func(client dtos.R2000ClientIface, reading dtos.ReadingStruct) {
+			fmt.Println("Tag lida:", reading)
+		},
 	}
 
 	client, err := clients.NewR2000Client("teste", "COM7", callbacks)
@@ -66,13 +95,27 @@ func main() {
 	defer client.Close()
 
 	// loop infinito enviando comandos
-	for {
-		// aqui você chama uma função que escreve na serial
-		// Exemplo (precisa existir no seu pacote connection/utils):
-		// connection.SendCommand(client.Port, enums.GET_READER_TEMPERATURE)
 
-		fmt.Println("Comando enviado, aguardando resposta...")
-		time.Sleep(2 * time.Second) // espera um pouco antes de mandar de novo
+	// aqui você chama uma função que escreve na serial
+	// Exemplo (precisa existir no seu pacote connection/utils):
+	// connection.SendCommand(client.Port, enums.GET_READER_TEMPERATURE)
+	dto := &dtos.RealtimeDto{
+		Antennas:     []int{0}, // antenas válidas 0x00–0x03
+		Repeat:       3,
+		DwellS:       1.1,
+		SwitchDelayS: 0.005,
 	}
+	err = client.StartRealtime(dto)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Realtime iniciado")
+
+	// deixa rodar 10 segundos
+	time.Sleep(10 * time.Second)
+
+	// para realtime
+	client.StopRealtime()
+	fmt.Println("Realtime parado")
 
 }
