@@ -9,14 +9,12 @@ import (
 
 // Função responásvel por tratar os frames retornados do módulo pelo canal serial.
 func ProcessR2000Frames(client *R2000Client, frame []byte) {
-	fmt.Println("frame:", frame)
 	validFrame := utils.ValidateFrame(frame)
 	if !validFrame {
 		return
 	}
 
 	frameCommand := frame[3]
-	fmt.Println("FRAMECOMMAND:", frameCommand)
 	switch frameCommand {
 	case byte(enums.GET_READER_TEMPERATURE):
 		callback := client.Callbacks.OnTemperature
@@ -92,7 +90,6 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 		}
 
 	case byte(enums.FAST_SWITCH_ANT_INVENTORY), byte(enums.REAL_TIME_INVENTORY):
-		fmt.Println("DEU certo")
 		length := frame[1]
 		if length == 0x05 && frame[5] == 0x22 {
 
@@ -100,9 +97,7 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 			antenna := frame[4] + 1
 			callback(client, fmt.Sprintf("Antena %d ausente ou mal conectada.", antenna))
 		}
-		fmt.Println("LENGTH:", length)
 		if length >= 0x0F {
-			fmt.Println("entrou no segundo if")
 			callback := client.Callbacks.OnReading
 			if callback != nil {
 				response := utils.OnReading(frame)

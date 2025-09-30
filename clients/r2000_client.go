@@ -57,7 +57,7 @@ func NewR2000Client(name, portName string, onFrame dtos.OnReadingCallbacks) (*R2
 	})
 
 	// Inicia a goroutine que processa os frames
-	client.wg.Add(1)
+	client.wg.Add(1) // diz ao waiting group que tem uma goroutine rodando.
 	go client.processFrames()
 
 	return client, nil
@@ -72,13 +72,13 @@ func (c *R2000Client) Close() error {
 
 // Goroutine que consome frames da fila e chama o callback OnFrame.
 func (c *R2000Client) processFrames() {
-	defer c.wg.Done()
+	defer c.wg.Done() //caso o processamento de frame para devido a stopChan ele informa o waitingGroup que uma goroutine terminou.
 	for {
 		select {
-		case <-c.stopChan:
+		case <-c.stopChan: //aqui se o stopChan for fechado da maneira close(stopchan) e le para de executar o loop da função de processamento de frame.
 			return
-		case frame := <-c.FrameQueue:
-			// >>> aqui entra o dispatcher que você já criou
+		case frame := <-c.FrameQueue: //aqui estou esvaziando a fila e mandando para a variavel frame.
+			// >>> aqui estou mandado o que a variavel frame recebeu para o dispatcher para ele processar a resposta
 			ProcessR2000Frames(c, frame)
 		}
 	}
@@ -178,9 +178,7 @@ func (c *R2000Client) SetWorkAntenna(antennaId int) {
 	c.sendFrame(frame)
 }
 
-// ##############################################################################
-
-// Inicia inventário em loop até chamar StopRealtime()
+// Inicia inventário em loop até chamar StopRealtime().
 func (c *R2000Client) StartRealtime(dto *dtos.RealtimeDto) error {
 	if c.realtimeRun {
 		return fmt.Errorf("realtime já em execução")
@@ -201,15 +199,15 @@ func (c *R2000Client) StartRealtime(dto *dtos.RealtimeDto) error {
 		return fmt.Errorf("forneça pelo menos uma antena")
 	}
 
-	c.realtimeStop = make(chan struct{})
+	c.realtimeStop = make(chan struct{}) //cria o canal para chamar a parada da função
 	c.realtimeRun = true
 
-	go func() {
+	go func() { //roda o realtime em paralelo usando uma go routine
 		defer func() { c.realtimeRun = false }()
 
 		for {
 			select {
-			case <-c.realtimeStop:
+			case <-c.realtimeStop: //caso o canal realtimeStop receba algo, ele entra no case pois sabe que eve parar o realtime.
 				return
 			default:
 			}
@@ -223,10 +221,10 @@ func (c *R2000Client) StartRealtime(dto *dtos.RealtimeDto) error {
 				c.sendFrame(frame)
 
 				// dwell
-				tEnd := time.Now().Add(time.Duration(dto.DwellS * float64(time.Second)))
-				for time.Now().Before(tEnd) {
+				timeEnd := time.Now().Add(time.Duration(dto.DwellS * float64(time.Second)))
+				for time.Now().Before(timeEnd) {
 					select {
-					case <-c.realtimeStop:
+					case <-c.realtimeStop: //caso o canal realtime stop receba algo ele para a execução do loop.
 						return
 					default:
 					}
@@ -249,11 +247,11 @@ func (c *R2000Client) StartRealtime(dto *dtos.RealtimeDto) error {
 	return nil
 }
 
-// Para o inventário realtime
+// Para o inventário realtime.
 func (c *R2000Client) StopRealtime() {
 	if !c.realtimeRun {
 		return
 	}
 	close(c.realtimeStop)
-	c.ModuleReset() // opcional, reinicia o módulo
+	c.ModuleReset()
 }

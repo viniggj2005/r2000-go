@@ -3,7 +3,6 @@ package connection
 import (
 	"fmt"
 
-	"github.com/viniggj2005/r2000-go/logs"
 	"go.bug.st/serial"
 )
 
@@ -14,7 +13,7 @@ type PortError struct {
 func GetPorts() []string {
 	ports, err := serial.GetPortsList()
 	if err != nil {
-		logs.Error(err.Error())
+		fmt.Println(err.Error())
 	}
 	return ports
 }
