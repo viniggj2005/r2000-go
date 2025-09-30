@@ -14,3 +14,12 @@ var State = struct {
 	ON:  []byte{byte(ON)},
 	OFF: []byte{byte(OFF)},
 }
+var StateMap = map[string]R2000StateEnum{
+	"OFF": OFF,
+	"ON":  ON,
+}
+
+var StateReverseMap = map[R2000StateEnum]string{
+	OFF: "OFF",
+	ON:  "ON",
+}

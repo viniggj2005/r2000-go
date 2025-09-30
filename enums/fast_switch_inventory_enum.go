@@ -23,3 +23,10 @@ var FastSwitchInventory = struct {
 	ANTENNA4: []byte{byte(ANTENNA4)},
 	DISABLED: []byte{byte(DISABLED)},
 }
+var FastSwitchInventoryMap = map[string]R2000FastSwitchInventoryEnum{
+	"ANTENNA1": ANTENNA1,
+	"ANTENNA2": ANTENNA2,
+	"ANTENNA3": ANTENNA3,
+	"ANTENNA4": ANTENNA4,
+	"DISABLED": DISABLED,
+}

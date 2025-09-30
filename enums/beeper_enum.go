@@ -17,3 +17,15 @@ var BeeperMode = struct {
 	AfterInventoryRound: []byte{byte(AfterInventoryRoundEnum)},
 	AfterEveryTag:       []byte{byte(AfterEveryTagEnum)},
 }
+
+var BeeperMap = map[string]R2000BeeperEnum{
+	"QuietEnum":               QuietEnum,
+	"AfterInventoryRoundEnum": AfterInventoryRoundEnum,
+	"AfterEveryTagEnum":       AfterEveryTagEnum,
+}
+
+var BeeperReverseMap = map[R2000BeeperEnum]string{
+	QuietEnum:               "QuietEnum",
+	AfterInventoryRoundEnum: "AfterInventoryRoundEnum",
+	AfterEveryTagEnum:       "AfterEveryTagEnum",
+}

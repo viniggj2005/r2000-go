@@ -35,3 +35,10 @@ func (r R2000RegionsEnum) String() string {
 		return "UNKNOWN"
 	}
 }
+
+var RegionsMap = map[string]R2000RegionsEnum{
+	"FCC":  FCC,
+	"ETSI": ETSI,
+	"CHN":  CHN,
+	"USER": USER,
+}
