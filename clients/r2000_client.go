@@ -24,6 +24,10 @@ type R2000Client struct {
 	realtimeRun  bool
 	Callbacks    dtos.OnReadingCallbacks // Callback para processar cada frame recebido
 }
+type TimeWatcher struct {
+	TimeWatcherRun      bool
+	TimeWatcherStopChan chan struct{}
+}
 
 func (c *R2000Client) GetName() string {
 	return c.Name
@@ -254,4 +258,28 @@ func (c *R2000Client) StopRealtime() {
 	}
 	close(c.realtimeStop)
 	c.ModuleReset()
+}
+
+func (context *TimeWatcher) StartTemperatureWatcher(clients []*R2000Client, intervalSeconds int) {
+	go func() {
+		defer func() { context.TimeWatcherRun = false }()
+		for {
+			select {
+			case <-context.TimeWatcherStopChan:
+				return
+			default:
+			}
+			for _, client := range clients {
+				client.GetModuleTemperature()
+				time.Sleep(time.Duration(intervalSeconds) * time.Second)
+			}
+
+		}
+	}()
+}
+func (context *TimeWatcher) StopTemperatureWatcher() {
+	if !context.TimeWatcherRun {
+		return
+	}
+	close(context.TimeWatcherStopChan)
 }
