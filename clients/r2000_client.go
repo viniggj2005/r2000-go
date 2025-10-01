@@ -23,6 +23,7 @@ type R2000Client struct {
 	realtimeStop chan struct{}
 	realtimeRun  bool
 	Callbacks    dtos.OnReadingCallbacks // Callback para processar cada frame recebido
+	Watcher      *TimeWatcher
 }
 type TimeWatcher struct {
 	TimeWatcherRun      bool
