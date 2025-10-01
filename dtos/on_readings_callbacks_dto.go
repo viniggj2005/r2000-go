@@ -15,5 +15,5 @@ type OnReadingCallbacks struct {
 	OnSetOutputPower     func(client R2000ClientIface, ok bool, errMsg string)
 	OnSetBuzzerBehavior  func(client R2000ClientIface, ok bool, errMsg string)
 	OnSetFrequencyRegion func(client R2000ClientIface, ok bool, errMsg string)
-	OnGetFrequencyRegion func(client R2000ClientIface, region string, frequency1, frequency2 float64, errMsg error)
+	OnGetFrequencyRegion func(client R2000ClientIface, region string, start, end float64, errMsg error)
 }
