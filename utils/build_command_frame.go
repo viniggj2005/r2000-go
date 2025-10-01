@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"fmt"
-
 	"github.com/viniggj2005/r2000-go/dtos"
 	"github.com/viniggj2005/r2000-go/enums"
 )
@@ -32,6 +30,5 @@ func BuildCommandFrame(obj dtos.BuildFrame) []byte {
 		append([]byte{byte(enums.HEADER)}, middle...),
 		checksum,
 	)
-	fmt.Printf("BuildCommand: %x\n", frame)
 	return frame
 }
