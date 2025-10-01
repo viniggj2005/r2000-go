@@ -32,6 +32,6 @@ func BuildCommandFrame(obj dtos.BuildFrame) []byte {
 		append([]byte{byte(enums.HEADER)}, middle...),
 		checksum,
 	)
-	fmt.Printf("%x\n", frame)
+	fmt.Printf("BuildCommand: %x\n", frame)
 	return frame
 }
