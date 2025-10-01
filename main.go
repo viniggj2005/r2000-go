@@ -1,5 +1,13 @@
 package main
 
+import (
+	"fmt"
+
+	"github.com/viniggj2005/r2000-go/dtos"
+	"github.com/viniggj2005/r2000-go/enums"
+	"github.com/viniggj2005/r2000-go/utils"
+)
+
 // "github.com/viniggj2005/r2000-go/mqtt"
 
 func main() {
@@ -35,7 +43,8 @@ func main() {
 	// }
 	//##################################################################
 	//CRIAR O FRAME APARTIR DE PARAMETROS
-	// utils.BuildCommandFrame(utils.BuildFrame{Command: enums.GET_READER_TEMPERATURE, Params: []byte{byte(enums.ANTENNA1)}})
+	teste := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_FREQUENCY_REGION, Params: []byte{byte(enums.FCC), byte(enums.MHZ_902_00), byte(enums.MHZ_928_00)}})
+	fmt.Printf("%x\n", teste)
 	//##################################################################
 
 	// callbacks := dtos.OnReadingCallbacks{

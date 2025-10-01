@@ -153,6 +153,7 @@ func (c *R2000Client) SetBeeperMode(mode enums.R2000BeeperEnum) {
 // Altera a Região de funcionamento do módulo.
 func (c *R2000Client) SetFrequencyRegion(obj dtos.FrequencyRegionsStruct) {
 	params := []byte{obj.Region, obj.StartFrequency, obj.EndFrequency}
+	fmt.Printf("%x\n", params)
 	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_FREQUENCY_REGION, Params: params})
 	c.sendFrame(frame)
 }
