@@ -174,12 +174,12 @@ func (c *R2000Client) SetOutputPower(dbmPower int) {
 }
 
 // Altera a antena de saída do módulo.
-func (c *R2000Client) SetWorkAntenna(antennaId int) {
-	if antennaId < 0 || antennaId > 3 {
-		c.Callbacks.OnSetWorkAntenna(c, false, fmt.Sprintf("valor inválido: %d o range de antenas é de 0 a 3", antennaId))
-		return
-	}
-	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_TEMPORARY_OUTPUT_POWER, Params: []byte{byte(antennaId)}})
+func (c *R2000Client) SetWorkAntenna(antennaId []byte) {
+	// if antennaId < 0 || antennaId > 3 {
+	// 	c.Callbacks.OnSetWorkAntenna(c, false, fmt.Sprintf("valor inválido: %d o range de antenas é de 0 a 3", antennaId))
+	// 	return
+	// }
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_TEMPORARY_OUTPUT_POWER, Params: antennaId})
 	c.sendFrame(frame)
 }
 
