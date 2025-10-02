@@ -91,17 +91,18 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 
 	case byte(enums.FAST_SWITCH_ANT_INVENTORY), byte(enums.REAL_TIME_INVENTORY):
 		length := frame[1]
-		if length == 0x05 && frame[5] == 0x22 {
 
-			callback := client.Callbacks.OnReadingError
-			antenna := frame[4] + 1
-			callback(client, fmt.Sprintf("Antena %d ausente ou mal conectada.", antenna))
+		if length == 0x05 && frame[5] == 0x22 {
+			if cb := client.Callbacks.OnReadingError; cb != nil {
+				antenna := frame[4] + 1
+				cb(client, fmt.Sprintf("Antena %d ausente ou mal conectada.", antenna))
+			}
 		}
+
 		if length >= 0x0F {
-			callback := client.Callbacks.OnReading
-			if callback != nil {
-				response := utils.OnReading(frame)
-				callback(client, response)
+			if cb := client.Callbacks.OnReading; cb != nil {
+				resp := utils.OnReading(frame)
+				cb(client, resp)
 			}
 		}
 	case byte(enums.RESET):

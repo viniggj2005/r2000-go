@@ -10,7 +10,7 @@ func ExtractParams(frame []byte) []byte {
 }
 
 func ExtractReading(frame []byte) []byte {
-	return frame[4 : len(frame)-1]
+	return frame[4 : len(frame)-2]
 }
 
 func EncodeParamsToBytes(params int) []byte {
