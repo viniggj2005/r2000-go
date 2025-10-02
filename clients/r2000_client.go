@@ -174,12 +174,18 @@ func (c *R2000Client) SetOutputPower(dbmPower int) {
 }
 
 // Altera a antena de saída do módulo.
-func (c *R2000Client) SetWorkAntenna(antennaId []byte) {
-	// if antennaId < 0 || antennaId > 3 {
-	// 	c.Callbacks.OnSetWorkAntenna(c, false, fmt.Sprintf("valor inválido: %d o range de antenas é de 0 a 3", antennaId))
-	// 	return
-	// }
-	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_TEMPORARY_OUTPUT_POWER, Params: antennaId})
+func (c *R2000Client) SetWorkAntenna(antennaId byte) {
+	if antennaId > 0x03 {
+		// se tiver callbacks, chame aqui
+		fmt.Printf("valor inválido: %d. Range válido é 0–3\n", antennaId)
+		return
+	}
+	fmt.Println("setando antena em serviço:", antennaId)
+
+	frame := utils.BuildCommandFrame(dtos.BuildFrame{
+		Command: enums.SET_WORK_ANTENNA,
+		Params:  []byte{antennaId},
+	})
 	c.sendFrame(frame)
 }
 
@@ -195,7 +201,7 @@ func (c *R2000Client) StartRealtime(dto *dtos.RealtimeDto) error {
 	// valida antenas
 	var antList []byte
 	for _, ant := range dto.Antennas {
-		if ant < 0x00 || ant > 0x03 {
+		if ant > 0x03 {
 			return fmt.Errorf("AntennaID inválida: %d", ant)
 		}
 		antList = append(antList, byte(ant))
@@ -204,41 +210,40 @@ func (c *R2000Client) StartRealtime(dto *dtos.RealtimeDto) error {
 		return fmt.Errorf("forneça pelo menos uma antena")
 	}
 
-	c.realtimeStop = make(chan struct{}) //cria o canal para chamar a parada da função
+	c.realtimeStop = make(chan struct{})
 	c.realtimeRun = true
 
-	go func() { //roda o realtime em paralelo usando uma go routine
+	go func() {
 		defer func() { c.realtimeRun = false }()
 
 		for {
 			select {
-			case <-c.realtimeStop: //caso o canal realtimeStop receba algo, ele entra no case pois sabe que eve parar o realtime.
+			case <-c.realtimeStop:
 				return
 			default:
 			}
 
 			for _, ant := range antList {
-				// seta antena
-				frame := utils.BuildCommandFrame(dtos.BuildFrame{
-					Command: enums.SET_WORK_ANTENNA,
-					Params:  []byte{ant},
-				})
-				c.sendFrame(frame)
+				// usa a função de trocar antena
+				c.SetWorkAntenna(ant)
 
-				// dwell
+				// dwell (tempo que fica naquela antena)
 				timeEnd := time.Now().Add(time.Duration(dto.DwellS * float64(time.Second)))
 				for time.Now().Before(timeEnd) {
 					select {
-					case <-c.realtimeStop: //caso o canal realtime stop receba algo ele para a execução do loop.
+					case <-c.realtimeStop:
 						return
 					default:
 					}
+
 					inv := utils.BuildCommandFrame(dtos.BuildFrame{
 						Command: enums.REAL_TIME_INVENTORY,
 						Params:  []byte{byte(dto.Repeat & 0xFF)},
 					})
 					c.sendFrame(inv)
-					time.Sleep(0)
+
+					// dá tempo para o hardware processar
+					time.Sleep(10 * time.Millisecond)
 				}
 
 				// delay entre antenas
