@@ -179,6 +179,7 @@ func (c *R2000Client) SetWorkAntenna(antennaId []byte) {
 	// 	c.Callbacks.OnSetWorkAntenna(c, false, fmt.Sprintf("valor inválido: %d o range de antenas é de 0 a 3", antennaId))
 	// 	return
 	// }
+	fmt.Println("setando antena em serviço:", antennaId)
 	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_TEMPORARY_OUTPUT_POWER, Params: antennaId})
 	c.sendFrame(frame)
 }
