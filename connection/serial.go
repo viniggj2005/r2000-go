@@ -2,6 +2,7 @@ package connection
 
 import (
 	"fmt"
+	"strings"
 
 	"go.bug.st/serial"
 )
@@ -14,8 +15,17 @@ func GetPorts() []string {
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		fmt.Println(err.Error())
+		return nil
 	}
-	return ports
+
+	var usbPorts []string
+	for _, p := range ports {
+		if strings.HasPrefix(p, "/dev/ttyUSB") {
+			usbPorts = append(usbPorts, p)
+		}
+	}
+
+	return usbPorts
 }
 
 func OpenSerialConnection(port string) (serial.Port, error) {
