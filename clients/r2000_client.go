@@ -23,13 +23,14 @@ type R2000Client struct {
 	realtimeStop chan struct{}
 	realtimeRun  bool
 	Callbacks    dtos.OnReadingCallbacks // Callback para processar cada frame recebido
-	Watcher      *TimeWatcher
-	writeMu      sync.Mutex
+	// Watcher      *TimeWatcher
+	writeMu sync.Mutex
 }
-type TimeWatcher struct {
-	TimeWatcherRun      bool
-	TimeWatcherStopChan chan struct{}
-}
+
+// type TimeWatcher struct {
+// 	TimeWatcherRun      bool
+// 	TimeWatcherStopChan chan struct{}
+// }
 
 func (c *R2000Client) GetName() string {
 	return c.Name
@@ -224,6 +225,7 @@ func (c *R2000Client) StartRealtime(dto *dtos.RealtimeDto) error {
 			}
 
 			for _, ant := range antList {
+				c.GetModuleTemperature()
 				// usa a função de trocar antena
 				c.SetWorkAntenna(ant)
 
@@ -266,37 +268,37 @@ func (c *R2000Client) StopRealtime() {
 	c.ModuleReset()
 }
 
-func (tw *TimeWatcher) StartTemperatureWatcher(clients []*R2000Client, intervalSeconds int) {
-	if tw.TimeWatcherStopChan == nil {
-		tw.TimeWatcherStopChan = make(chan struct{})
-	}
-	tw.TimeWatcherRun = true
+// func (tw *TimeWatcher) StartTemperatureWatcher(clients []*R2000Client, intervalSeconds int) {
+// 	if tw.TimeWatcherStopChan == nil {
+// 		tw.TimeWatcherStopChan = make(chan struct{})
+// 	}
+// 	tw.TimeWatcherRun = true
 
-	go func() {
-		defer func() { tw.TimeWatcherRun = false }()
-		ticker := time.NewTicker(time.Duration(intervalSeconds) * time.Second)
-		defer ticker.Stop()
+// 	go func() {
+// 		defer func() { tw.TimeWatcherRun = false }()
+// 		ticker := time.NewTicker(time.Duration(intervalSeconds) * time.Second)
+// 		defer ticker.Stop()
 
-		for _, c := range clients {
-			c.GetModuleTemperature()
-		}
+// 		for _, c := range clients {
+// 			c.GetModuleTemperature()
+// 		}
 
-		for {
-			select {
-			case <-tw.TimeWatcherStopChan:
-				return
-			case <-ticker.C:
-				for _, c := range clients {
-					c.GetModuleTemperature()
-				}
-			}
-		}
-	}()
-}
+// 		for {
+// 			select {
+// 			case <-tw.TimeWatcherStopChan:
+// 				return
+// 			case <-ticker.C:
+// 				for _, c := range clients {
+// 					c.GetModuleTemperature()
+// 				}
+// 			}
+// 		}
+// 	}()
+// }
 
-func (tw *TimeWatcher) StopTemperatureWatcher() {
-	if tw.TimeWatcherStopChan != nil {
-		close(tw.TimeWatcherStopChan)
-		tw.TimeWatcherStopChan = nil
-	}
-}
+// func (tw *TimeWatcher) StopTemperatureWatcher() {
+// 	if tw.TimeWatcherStopChan != nil {
+// 		close(tw.TimeWatcherStopChan)
+// 		tw.TimeWatcherStopChan = nil
+// 	}
+// }
