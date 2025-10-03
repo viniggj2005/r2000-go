@@ -1,14 +1,31 @@
 package connection
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
+	"time"
 
 	"go.bug.st/serial"
 )
 
-type PortError struct {
-	Code int
+const (
+	sofByte     = 0xA0
+	maxFrameLen = 1024
+	defBaud     = 115200
+)
+
+type ValidaFrame func([]byte) bool
+
+type OpenOptions struct {
+	BaudRate    int
+	DataBits    int
+	Parity      serial.Parity
+	StopBits    serial.StopBits
+	ReadTimeout time.Duration
 }
 
 func GetPorts() []string {
@@ -17,64 +34,132 @@ func GetPorts() []string {
 		fmt.Println(err.Error())
 		return nil
 	}
-
-	var usbPorts []string
+	var out []string
 	for _, p := range ports {
-		if strings.HasPrefix(p, "/dev/ttyUSB") {
-			usbPorts = append(usbPorts, p)
+		if strings.HasPrefix(p, "/dev/ttyUSB") || strings.HasPrefix(p, "COM") {
+			out = append(out, p)
 		}
 	}
-
-	return usbPorts
+	return out
 }
 
-func OpenSerialConnection(port string) (serial.Port, error) {
+func OpenSerial(ctx context.Context, port string, opt OpenOptions) (serial.Port, error) {
+	if opt.BaudRate == 0 {
+		opt.BaudRate = defBaud
+	}
+	if opt.DataBits == 0 {
+		opt.DataBits = 8
+	}
+	if opt.Parity == 0 {
+		opt.Parity = serial.NoParity
+	}
+	if opt.StopBits == 0 {
+		opt.StopBits = serial.OneStopBit
+	}
+
 	mode := &serial.Mode{
-		BaudRate: 115200,
-		Parity:   serial.NoParity,
-		StopBits: serial.OneStopBit,
-		DataBits: 8,
+		BaudRate: opt.BaudRate,
+		Parity:   opt.Parity,
+		StopBits: opt.StopBits,
+		DataBits: opt.DataBits,
 	}
-	portHandle, err := serial.Open(port, mode)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao abrir porta %s: %w", port, err)
+
+	type res struct {
+		p   serial.Port
+		err error
 	}
-	return portHandle, nil
+	ch := make(chan res, 1)
+	go func() {
+		p, err := serial.Open(port, mode)
+		ch <- res{p: p, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r := <-ch:
+		if r.err != nil {
+			return nil, fmt.Errorf("erro ao abrir porta %s: %w", port, r.err)
+		}
+		if opt.ReadTimeout <= 0 {
+			opt.ReadTimeout = 500 * time.Millisecond
+		}
+		_ = r.p.SetReadTimeout(opt.ReadTimeout)
+		return r.p, nil
+	}
 }
 
-func ListenSerial(portHandle serial.Port, callback func([]byte)) {
+// StartReader publica frames válidos em framesCh e erros em errCh.
+// Frame: [0xA0][LEN][LEN bytes]
+func StartReader(ctx context.Context, port serial.Port, framesCh chan<- []byte, errCh chan<- error, validar ValidaFrame) {
 	go func() {
-		buf := make([]byte, 256)
-		var buffer []byte
+		defer func() {
+			close(framesCh)
+			close(errCh)
+		}()
+
+		tmp := make([]byte, 512)
+		buf := make([]byte, 0, 4096)
 
 		for {
-			n, err := portHandle.Read(buf)
-			if err != nil {
+			select {
+			case <-ctx.Done():
 				return
+			default:
 			}
+
+			n, err := port.Read(tmp)
 			if n > 0 {
-				buffer = append(buffer, buf[:n]...)
+				buf = append(buf, tmp[:n]...)
 
 				for {
-					if len(buffer) < 2 {
+					idx := bytes.IndexByte(buf, sofByte)
+					if idx == -1 {
+						buf = buf[:0]
 						break
 					}
-					if buffer[0] != 0xA0 {
-						buffer = buffer[1:]
+					if idx > 0 {
+						copy(buf, buf[idx:])
+						buf = buf[:len(buf)-idx]
+					}
+					if len(buf) < 2 {
+						break
+					}
+					L := int(buf[1])
+					if L <= 0 || L > maxFrameLen {
+						buf = buf[1:]
+						continue
+					}
+					total := 2 + L
+					if len(buf) < total {
+						break
+					}
+					frame := make([]byte, total)
+					copy(frame, buf[:total])
+					copy(buf, buf[total:])
+					buf = buf[:len(buf)-total]
+
+					if validar != nil && !validar(frame) {
 						continue
 					}
 
-					length := int(buffer[1])
-					frameSize := length + 2
-					if len(buffer) < frameSize {
-						break
+					select {
+					case framesCh <- frame:
+					case <-ctx.Done():
+						return
 					}
-
-					frame := buffer[:frameSize]
-					buffer = buffer[frameSize:]
-
-					callback(frame)
 				}
+			}
+
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					return
+				}
+				select {
+				case errCh <- fmt.Errorf("serial read: %w", err):
+				default:
+				}
+				time.Sleep(10 * time.Millisecond)
 			}
 		}
 	}()

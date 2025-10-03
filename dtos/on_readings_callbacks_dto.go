@@ -1,8 +1,12 @@
 package dtos
 
-// Structure das possíveis callbacks do módulo.
-// dtos/callbacks.go
+// R2000ClientIface deve existir no seu projeto.
+// Aqui só referenciamos para não quebrar assinaturas.
 type OnReadingCallbacks struct {
+	// Novos campos opcionais para observabilidade
+	OnError    func(error)  // erros de I/O e parsing
+	OnRawFrame func([]byte) // frame bruto antes do dispatcher
+
 	OnSetDrm             func(client R2000ClientIface, ok bool, errMsg string)
 	OnReading            func(client R2000ClientIface, reading ReadingStruct)
 	OnFirmware           func(client R2000ClientIface, version float64)

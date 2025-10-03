@@ -7,92 +7,90 @@ import (
 	"github.com/viniggj2005/r2000-go/utils"
 )
 
-// Função responásvel por tratar os frames retornados do módulo pelo canal serial.
+// Tratamento de frames do protocolo R2000.
 func ProcessR2000Frames(client *R2000Client, frame []byte) {
-	validFrame := utils.ValidateFrame(frame)
-	if !validFrame {
+	if !utils.ValidateFrame(frame) {
+		if cb := client.Callbacks.OnReadingError; cb != nil {
+			cb(client, "frame inválido")
+		}
 		return
 	}
 
-	frameCommand := frame[3]
-	switch frameCommand {
+	if len(frame) < 4 {
+		if cb := client.Callbacks.OnReadingError; cb != nil {
+			cb(client, "frame muito curto")
+		}
+		return
+	}
+
+	cmd := frame[3]
+
+	switch cmd {
 	case byte(enums.GET_READER_TEMPERATURE):
-		callback := client.Callbacks.OnTemperature
-		if callback != nil {
-			response := utils.OnGetTemperature(frame)
-			callback(client, response)
+		if cb := client.Callbacks.OnTemperature; cb != nil {
+			cb(client, utils.OnGetTemperature(frame))
 		}
+
 	case byte(enums.GET_FIRMWARE_VERSION):
-		callback := client.Callbacks.OnFirmware
-		if callback != nil {
-			response := utils.OnGetFirmwareVersion(frame)
-			callback(client, response)
+		if cb := client.Callbacks.OnFirmware; cb != nil {
+			cb(client, utils.OnGetFirmwareVersion(frame))
 		}
+
 	case byte(enums.SET_BEEPER_MODE):
-		callback := client.Callbacks.OnSetBuzzerBehavior
-		if callback != nil {
-			response, err := utils.OnSetMessage(frame)
-			callback(client, response, err)
+		if cb := client.Callbacks.OnSetBuzzerBehavior; cb != nil {
+			ok, err := utils.OnSetMessage(frame)
+			cb(client, ok, err)
 		}
+
 	case byte(enums.GET_RF_POWER):
-		callback := client.Callbacks.OnGetOutputPower
-		if callback != nil {
-			response := utils.OnGetOutPutPower(frame)
-			callback(client, response)
+		if cb := client.Callbacks.OnGetOutputPower; cb != nil {
+			cb(client, utils.OnGetOutPutPower(frame))
 		}
-	case byte(enums.SET_TEMPORARY_OUTPUT_POWER):
-		callback := client.Callbacks.OnSetOutputPower
-		if callback != nil {
-			response, err := utils.OnSetMessage(frame)
-			callback(client, response, err)
+
+	case byte(enums.SET_TEMPORARY_OUTPUT_POWER), byte(enums.SET_RF_POWER):
+		if cb := client.Callbacks.OnSetOutputPower; cb != nil {
+			ok, err := utils.OnSetMessage(frame)
+			cb(client, ok, err)
 		}
-	case byte(enums.SET_RF_POWER):
-		callback := client.Callbacks.OnSetOutputPower
-		if callback != nil {
-			response, err := utils.OnSetMessage(frame)
-			callback(client, response, err)
-		}
+
 	case byte(enums.GET_WORK_ANTENNA):
-		callback := client.Callbacks.OnGetWorkAntenna
-		if callback != nil {
-			response := utils.OnGetWorkAntenna(frame)
-			callback(client, response)
+		if cb := client.Callbacks.OnGetWorkAntenna; cb != nil {
+			cb(client, utils.OnGetWorkAntenna(frame))
 		}
+
 	case byte(enums.GET_FREQUENCY_REGION):
-		callback := client.Callbacks.OnGetFrequencyRegion
-		if callback != nil {
-			response, f1, f2, err := utils.OnGetFrequencyRegion(frame)
-			callback(client, response, f1, f2, err)
+		if cb := client.Callbacks.OnGetFrequencyRegion; cb != nil {
+			region, f1, f2, err := utils.OnGetFrequencyRegion(frame)
+			cb(client, region, f1, f2, err)
 		}
+
 	case byte(enums.SET_WORK_ANTENNA):
-		callback := client.Callbacks.OnSetWorkAntenna
-		if callback != nil {
-			response, err := utils.OnSetMessage(frame)
-			callback(client, response, err)
+		if cb := client.Callbacks.OnSetWorkAntenna; cb != nil {
+			ok, err := utils.OnSetMessage(frame)
+			cb(client, ok, err)
 		}
+
 	case byte(enums.SET_FREQUENCY_REGION):
-		callback := client.Callbacks.OnSetFrequencyRegion
-		if callback != nil {
-			response, err := utils.OnSetMessage(frame)
-			callback(client, response, err)
+		if cb := client.Callbacks.OnSetFrequencyRegion; cb != nil {
+			ok, err := utils.OnSetMessage(frame)
+			cb(client, ok, err)
 		}
+
 	case byte(enums.GET_DRM_STATUS):
-		callback := client.Callbacks.OnGetDrmStatus
-		if callback != nil {
-			response := utils.OnGetDrmStatus(frame)
-			callback(client, response)
+		if cb := client.Callbacks.OnGetDrmStatus; cb != nil {
+			cb(client, utils.OnGetDrmStatus(frame))
 		}
+
 	case byte(enums.SET_DRM):
-		callback := client.Callbacks.OnSetDrm
-		if callback != nil {
-			response, err := utils.OnSetMessage(frame)
-			callback(client, response, err)
+		if cb := client.Callbacks.OnSetDrm; cb != nil {
+			ok, err := utils.OnSetMessage(frame)
+			cb(client, ok, err)
 		}
 
 	case byte(enums.FAST_SWITCH_ANT_INVENTORY), byte(enums.REAL_TIME_INVENTORY):
 		length := frame[1]
 
-		if length == 0x05 && frame[5] == 0x22 {
+		if length == 0x05 && len(frame) >= 6 && frame[5] == 0x22 {
 			if cb := client.Callbacks.OnReadingError; cb != nil {
 				antenna := frame[4] + 1
 				cb(client, fmt.Sprintf("Antena %d ausente ou mal conectada.", antenna))
@@ -101,16 +99,18 @@ func ProcessR2000Frames(client *R2000Client, frame []byte) {
 
 		if length >= 0x0F {
 			if cb := client.Callbacks.OnReading; cb != nil {
-				resp := utils.OnReading(frame)
-				cb(client, resp)
+				cb(client, utils.OnReading(frame))
 			}
 		}
+
 	case byte(enums.RESET):
 		if len(frame) >= 2 {
 			fmt.Printf("Reset executado, código de resposta: 0x%X\n", frame[len(frame)-2])
 		} else {
-			fmt.Println("Frame inválido recebido no RESET")
+			fmt.Println("Frame inválido no RESET")
 		}
+
 	default:
+		// silencioso por padrão
 	}
 }
