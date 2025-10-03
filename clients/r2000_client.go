@@ -72,9 +72,21 @@ func NewR2000Client(name, portName string, onFrame dtos.OnReadingCallbacks) (*R2
 
 // Fecha o cliente: sinaliza stopChan, aguarda goroutines e fecha a porta.
 func (c *R2000Client) Close() error {
-	close(c.stopChan)     // avisa para as goroutines pararem
-	c.wg.Wait()           // espera todas terminarem
-	return c.Port.Close() // fecha a porta serial
+	if c.realtimeRun {
+		c.StopRealtime()
+	}
+
+	// fecha porta -> desbloqueia Read()
+	if c.Port != nil {
+		_ = c.Port.Close()
+	}
+
+	// fecha stopChan -> avisa processFrames
+	close(c.stopChan)
+
+	// aguarda goroutines internas
+	c.wg.Wait()
+	return nil
 }
 
 // Goroutine que consome frames da fila e chama o callback OnFrame.
@@ -158,7 +170,6 @@ func (c *R2000Client) SetBeeperMode(mode enums.R2000BeeperEnum) {
 func (c *R2000Client) SetFrequencyRegion(obj dtos.FrequencyRegionsStruct) {
 	params := []byte{obj.Region, obj.StartFrequency, obj.EndFrequency}
 	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_FREQUENCY_REGION, Params: params})
-	fmt.Println("setando a região", c.Name, frame)
 	c.sendFrame(frame)
 }
 
