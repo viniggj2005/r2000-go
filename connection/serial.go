@@ -42,12 +42,17 @@ func OpenSerialConnection(port string) (serial.Port, error) {
 	return portHandle, nil
 }
 
-func ListenSerial(portHandle serial.Port, callback func([]byte)) {
+func ListenSerial(portHandle serial.Port, stopChan <-chan struct{}, callback func([]byte)) {
 	go func() {
 		buf := make([]byte, 256)
 		var buffer []byte
 
 		for {
+			select {
+			case <-stopChan:
+				return
+			default:
+			}
 			n, err := portHandle.Read(buf)
 			if err != nil {
 				return

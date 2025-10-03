@@ -56,7 +56,7 @@ func NewR2000Client(name, portName string, onFrame dtos.OnReadingCallbacks) (*R2
 
 	// Usa a função ListenSerial já criada no seu pacote connection
 	// Cada vez que chegam bytes, eles são jogados na FrameQueue
-	connection.ListenSerial(portHandle, func(data []byte) {
+	connection.ListenSerial(portHandle, client.stopChan, func(data []byte) {
 		select {
 		case client.FrameQueue <- data: // envia para fila
 		default: // se fila cheia, descarta
