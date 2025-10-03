@@ -24,6 +24,7 @@ type R2000Client struct {
 	realtimeRun  bool
 	Callbacks    dtos.OnReadingCallbacks // Callback para processar cada frame recebido
 	Watcher      *TimeWatcher
+	writeMu      sync.Mutex
 }
 type TimeWatcher struct {
 	TimeWatcherRun      bool
@@ -91,6 +92,8 @@ func (c *R2000Client) processFrames() {
 
 // Função responsável por eviar os frames através do canal serial.
 func (c *R2000Client) sendFrame(frame []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
 	total := 0
 	for total < len(frame) {
 		n, err := c.Port.Write(frame[total:])
@@ -263,26 +266,37 @@ func (c *R2000Client) StopRealtime() {
 	c.ModuleReset()
 }
 
-func (context *TimeWatcher) StartTemperatureWatcher(clients []*R2000Client, intervalSeconds int) {
+func (tw *TimeWatcher) StartTemperatureWatcher(clients []*R2000Client, intervalSeconds int) {
+	if tw.TimeWatcherStopChan == nil {
+		tw.TimeWatcherStopChan = make(chan struct{})
+	}
+	tw.TimeWatcherRun = true
+
 	go func() {
-		defer func() { context.TimeWatcherRun = false }()
+		defer func() { tw.TimeWatcherRun = false }()
+		ticker := time.NewTicker(time.Duration(intervalSeconds) * time.Second)
+		defer ticker.Stop()
+
+		for _, c := range clients {
+			c.GetModuleTemperature()
+		}
+
 		for {
 			select {
-			case <-context.TimeWatcherStopChan:
+			case <-tw.TimeWatcherStopChan:
 				return
-			default:
+			case <-ticker.C:
+				for _, c := range clients {
+					c.GetModuleTemperature()
+				}
 			}
-			for _, client := range clients {
-				client.GetModuleTemperature()
-				time.Sleep(time.Duration(intervalSeconds) * time.Second)
-			}
-
 		}
 	}()
 }
-func (context *TimeWatcher) StopTemperatureWatcher() {
-	if !context.TimeWatcherRun {
-		return
+
+func (tw *TimeWatcher) StopTemperatureWatcher() {
+	if tw.TimeWatcherStopChan != nil {
+		close(tw.TimeWatcherStopChan)
+		tw.TimeWatcherStopChan = nil
 	}
-	close(context.TimeWatcherStopChan)
 }
