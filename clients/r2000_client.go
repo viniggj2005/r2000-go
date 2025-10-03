@@ -158,6 +158,7 @@ func (c *R2000Client) SetBeeperMode(mode enums.R2000BeeperEnum) {
 func (c *R2000Client) SetFrequencyRegion(obj dtos.FrequencyRegionsStruct) {
 	params := []byte{obj.Region, obj.StartFrequency, obj.EndFrequency}
 	frame := utils.BuildCommandFrame(dtos.BuildFrame{Command: enums.SET_FREQUENCY_REGION, Params: params})
+	fmt.Println("setando a região", c.Name, frame)
 	c.sendFrame(frame)
 }
 
