@@ -70,21 +70,22 @@ func NewR2000Client(name, portName string, onFrame dtos.OnReadingCallbacks) (*R2
 	return client, nil
 }
 
+func safeClose(ch chan struct{}) {
+	defer func() { recover() }() // ignora panic se já estiver fechado
+	if ch != nil {
+		close(ch)
+	}
+}
+
 // Fecha o cliente: sinaliza stopChan, aguarda goroutines e fecha a porta.
 func (c *R2000Client) Close() error {
 	if c.realtimeRun {
 		c.StopRealtime()
 	}
-
-	// fecha porta -> desbloqueia Read()
 	if c.Port != nil {
 		_ = c.Port.Close()
 	}
-
-	// fecha stopChan -> avisa processFrames
-	close(c.stopChan)
-
-	// aguarda goroutines internas
+	safeClose(c.stopChan)
 	c.wg.Wait()
 	return nil
 }
@@ -276,7 +277,11 @@ func (c *R2000Client) StopRealtime() {
 	if !c.realtimeRun {
 		return
 	}
-	close(c.realtimeStop)
+	if c.realtimeStop != nil {
+		close(c.realtimeStop)
+		c.realtimeStop = nil // evita fechar de novo
+	}
+	c.realtimeRun = false
 	c.ModuleReset()
 }
 
